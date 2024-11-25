@@ -1,0 +1,98 @@
+SELECT player_name, age, height, weight, college, country, draft_year, draft_round, draft_number, gp, pts, reb, ast, netrtg, oreb_pct, dreb_pct, usg_pct, ts_pct, ast_pct, season
+	FROM public.player_seasons;
+
+/*
+CREATE TYPE season_stats AS (
+						season INTEGER,
+						gp INTEGER,
+						pts REAL,
+						reb REAL,
+						ast REAL
+)
+
+
+CREATE TABLE players (
+						player_name TEXT,
+						age TEXT,
+						height TEXT, 
+						college TEXT,
+						draft_year TEXT,
+						draft_round TEXT,
+						draft_number TEXT,
+						season_stats season_stats[],
+						current_season INTEGER,
+						PRIMARY KEY(player_name, current_season)
+						)
+
+*/
+
+INSERT INTO players
+WITH yesterday as (
+		SELECT * FROM players
+		where current_season =2001
+		),
+		today AS (
+			SELECT * FROM player_seasons
+				where season =2002
+				)
+
+SELECT 
+		COALESCE(T.player_name, y.player_name) as player_name,
+		COALESCE(T.height, y.height) as height,
+		COALESCE(T.college, y.college) as college,
+		COALESCE(T.draft_year, y.draft_year) as draft_year,
+		COALESCE(T.draft_round, y.draft_round) as draft_round,
+		COALESCE(T.draft_number, y.draft_number) as draft_number,
+		COALESCE(T.player_name, y.player_name) as player_name,
+		CASE WHEN y.season_stats is NULL
+			THEN ARRAY[ROW(
+					t.season,
+					t.gp,
+					t.pts,
+					t.reb,
+					t.ast
+			)::season_stats]
+		WHEN t.season IS NOT NULL THEN y.season_stats || ARRAY[ROW(
+			t.season,
+			t.gp,
+			t.pts,
+			t.reb,
+			t.ast
+		)::season_stats]
+		ELSE y.season_stats
+		END AS season_stats,
+		coalesce(t.season,y.current_season+1) as current_season
+	
+						
+	FROM today t FULL OUTER JOIN yesterday y
+	on t.player_name =y.player_name;
+
+
+
+WITH unnested AS (
+    SELECT 
+        player_name,
+        UNNEST(season_stats) AS season_stats
+    FROM players
+    WHERE current_season = 2001 
+      AND player_name = 'Michael Jordan'
+)
+SELECT 
+    player_name, 
+    season_stats
+FROM unnested;
+
+
+
+WITH unnested AS (
+    SELECT 
+        player_name,
+        UNNEST(season_stats) AS season_stats
+    FROM players
+    WHERE current_season = 2001 
+      AND player_name = 'Michael Jordan'
+)
+SELECT 
+    player_name, 
+    (season_stats::season_stats).*
+FROM unnested;
